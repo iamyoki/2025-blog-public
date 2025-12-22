@@ -2,6 +2,7 @@ import { NextConfig } from 'next'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
 
 const nextConfig: NextConfig = {
+	cacheComponents: true,
 	devIndicators: false,
 	reactStrictMode: false,
 	reactCompiler: true,
@@ -11,6 +12,19 @@ const nextConfig: NextConfig = {
 	},
 	experimental: {
 		scrollRestoration: false
+	},
+	logging: {
+		fetches: { fullUrl: true }
+	},
+	images: {
+		remotePatterns: [
+			{
+				protocol: 'https',
+				hostname: 'avatars.githubusercontent.com',
+				port: '',
+				pathname: '/**'
+			}
+		]
 	},
 	turbopack: {
 		rules: {
@@ -23,7 +37,16 @@ const nextConfig: NextConfig = {
 			// })
 		},
 
-		resolveExtensions: ['.mdx', '.tsx', '.ts', '.jsx', '.js', '.mjs', '.json', 'css']
+		resolveExtensions: [
+			'.mdx',
+			'.tsx',
+			'.ts',
+			'.jsx',
+			'.js',
+			'.mjs',
+			'.json',
+			'css'
+		]
 	},
 	webpack: config => {
 		config.module.rules.push({

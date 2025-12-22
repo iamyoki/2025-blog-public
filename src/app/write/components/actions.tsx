@@ -1,26 +1,23 @@
 import { motion } from 'motion/react'
+import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
-import { useWriteStore } from '../stores/write-store'
-import { usePreviewStore } from '../stores/preview-store'
 import { usePublish } from '../hooks/use-publish'
+import { usePreviewStore } from '../stores/preview-store'
+import { useWriteStore } from '../stores/write-store'
 
 export function WriteActions() {
-	const { loading, mode, form, loadBlogForEdit, originalSlug, updateForm } = useWriteStore()
+	const { loading, mode, form, loadBlogForEdit, originalSlug, updateForm } =
+		useWriteStore()
 	const { openPreview } = usePreviewStore()
-	const { isAuth, onChoosePrivateKey, onPublish, onDelete } = usePublish()
+	const { onChoosePrivateKey, onPublish, onDelete } = usePublish()
 	const [saving, setSaving] = useState(false)
 	const keyInputRef = useRef<HTMLInputElement>(null)
 	const mdInputRef = useRef<HTMLInputElement>(null)
 	const router = useRouter()
 
-	const handleImportOrPublish = () => {
-		if (!isAuth) {
-			keyInputRef.current?.click()
-		} else {
-			onPublish()
-		}
+	const handleImportOrPublish = async () => {
+		onPublish()
 	}
 
 	const handleCancel = () => {
@@ -34,14 +31,12 @@ export function WriteActions() {
 		}
 	}
 
-	const buttonText = isAuth ? (mode === 'edit' ? '更新' : '发布') : '导入密钥'
+	const buttonText = mode === 'edit' ? '更新' : '发布'
 
 	const handleDelete = () => {
-		if (!isAuth) {
-			toast.info('请先导入密钥')
-			return
-		}
-		const confirmMsg = form?.title ? `确定删除《${form.title}》吗？该操作不可恢复。` : '确定删除当前文章吗？该操作不可恢复。'
+		const confirmMsg = form?.title
+			? `确定删除《${form.title}》吗？该操作不可恢复。`
+			: '确定删除当前文章吗？该操作不可恢复。'
 		if (window.confirm(confirmMsg)) {
 			onDelete()
 		}
@@ -79,13 +74,24 @@ export function WriteActions() {
 					if (e.currentTarget) e.currentTarget.value = ''
 				}}
 			/>
-			<input ref={mdInputRef} type='file' accept='.md' className='hidden' onChange={handleMdFileChange} />
+			<input
+				ref={mdInputRef}
+				type='file'
+				accept='.md'
+				className='hidden'
+				onChange={handleMdFileChange}
+			/>
 
 			<ul className='absolute top-4 right-6 flex items-center gap-2'>
 				{mode === 'edit' && (
 					<>
-						<motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} className='flex items-center gap-2'>
-							<div className='rounded-lg border bg-blue-50 px-4 py-2 text-sm text-blue-700'>编辑模式</div>
+						<motion.div
+							initial={{ opacity: 0, scale: 0.6 }}
+							animate={{ opacity: 1, scale: 1 }}
+							className='flex items-center gap-2'>
+							<div className='rounded-lg border bg-blue-50 px-4 py-2 text-sm text-blue-700'>
+								编辑模式
+							</div>
 						</motion.div>
 
 						<motion.button

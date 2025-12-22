@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import { clearAllAuthCache, getAuthToken as getToken, hasAuth as checkAuth, getPemFromCache, savePemToCache } from '@/lib/auth'
+import {
+	clearAllAuthCache,
+	getAuthToken as getToken,
+	hasAuth as checkAuth,
+	getPemFromCache,
+	savePemToCache
+} from '@/lib/auth'
 import { useConfigStore } from '@/app/(home)/stores/config-store'
 interface AuthStore {
 	// State
@@ -7,6 +13,7 @@ interface AuthStore {
 	privateKey: string | null
 
 	// Actions
+	setAuth: (isAuth: boolean) => void
 	setPrivateKey: (key: string) => void
 	clearAuth: () => void
 	refreshAuthState: () => void
@@ -16,6 +23,10 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>((set, get) => ({
 	isAuth: false,
 	privateKey: null,
+
+	setAuth: (isAuth: boolean) => {
+		set({ isAuth })
+	},
 
 	setPrivateKey: async (key: string) => {
 		set({ isAuth: true, privateKey: key })
@@ -41,14 +52,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 	}
 }))
 
-getPemFromCache().then((key) => {
-	if (key) {
-		useAuthStore.setState({ privateKey: key })
-	}
-})
+// getPemFromCache().then(key => {
+// 	if (key) {
+// 		useAuthStore.setState({ privateKey: key })
+// 	}
+// })
 
-checkAuth().then((isAuth) => {
-	if (isAuth) {
-		useAuthStore.setState({ isAuth })
-	}
-})
+// checkAuth().then(isAuth => {
+// 	if (isAuth) {
+// 		useAuthStore.setState({ isAuth })
+// 	}
+// })

@@ -1,31 +1,36 @@
 'use client'
 
-import Link from 'next/link'
-import dayjs from 'dayjs'
-import weekOfYear from 'dayjs/plugin/weekOfYear'
-import { motion } from 'motion/react'
-
-dayjs.extend(weekOfYear)
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import { ANIMATION_DELAY, INIT_DELAY } from '@/consts'
-import ShortLineSVG from '@/svgs/short-line.svg'
-import { useBlogIndex, type BlogIndexItem } from '@/hooks/use-blog-index'
+import { useConfigStore } from '@/app/(home)/stores/config-store'
+import { INIT_DELAY } from '@/consts'
+import { useAuthStore } from '@/hooks/use-auth'
+import { type BlogIndexItem } from '@/hooks/use-blog-index'
 import { useCategories } from '@/hooks/use-categories'
 import { useReadArticles } from '@/hooks/use-read-articles'
-import JuejinSVG from '@/svgs/juejin.svg'
-import { useAuthStore } from '@/hooks/use-auth'
-import { useConfigStore } from '@/app/(home)/stores/config-store'
 import { readFileAsText } from '@/lib/file-utils'
 import { cn } from '@/lib/utils'
-import { saveBlogEdits } from './services/save-blog-edits'
+import JuejinSVG from '@/svgs/juejin.svg'
+import ShortLineSVG from '@/svgs/short-line.svg'
+import dayjs from 'dayjs'
+import weekOfYear from 'dayjs/plugin/weekOfYear'
 import { Check } from 'lucide-react'
+import { motion } from 'motion/react'
+import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
+import useSWR from 'swr'
+import { getArticleMetaList } from './actions'
 import { CategoryModal } from './components/category-modal'
+import { saveBlogEdits } from './services/save-blog-edits'
+
+dayjs.extend(weekOfYear)
 
 type DisplayMode = 'day' | 'week' | 'month' | 'year' | 'category'
 
 export default function BlogPage() {
-	const { items, loading } = useBlogIndex()
+	const { data: blogMetaList = [], isLoading: loading } = useSWR(
+		'blog-meta-list',
+		getArticleMetaList
+	)
 	const { categories: categoriesFromServer } = useCategories()
 	const { isRead } = useReadArticles()
 	const { isAuth, setPrivateKey } = useAuthStore()
@@ -43,20 +48,26 @@ export default function BlogPage() {
 	const [categoryList, setCategoryList] = useState<string[]>([])
 	const [newCategory, setNewCategory] = useState('')
 
-	useEffect(() => {
-		if (!editMode) {
-			setEditableItems(items)
-		}
-	}, [items, editMode])
+	const items: BlogIndexItem[] = blogMetaList.map(item => ({
+		slug: item.slug,
+		date: String(item.createdAt),
+		title: item.title,
+		tags: item.tags ?? [],
+		category: item.categories?.join(' '),
+		cover: item.coverUrl,
+		summary: item.summary
+	}))
 
 	useEffect(() => {
 		setCategoryList(categoriesFromServer || [])
 	}, [categoriesFromServer])
 
-	const displayItems = editMode ? editableItems : items
+	const displayItems: BlogIndexItem[] = editMode ? editableItems : items
 
 	const { groupedItems, groupKeys, getGroupLabel } = useMemo(() => {
-		const sorted = [...displayItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+		const sorted = [...displayItems].sort(
+			(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+		)
 
 		const grouped = sorted.reduce(
 			(acc, item) => {
@@ -100,9 +111,15 @@ export default function BlogPage() {
 
 		const keys = Object.keys(grouped).sort((a, b) => {
 			if (displayMode === 'category') {
-				const categoryOrder = new Map(categoryList.map((c, index) => [c, index]))
-				const aOrder = categoryOrder.has(a) ? categoryOrder.get(a)! : Number.MAX_SAFE_INTEGER
-				const bOrder = categoryOrder.has(b) ? categoryOrder.get(b)! : Number.MAX_SAFE_INTEGER
+				const categoryOrder = new Map(
+					categoryList.map((c, index) => [c, index])
+				)
+				const aOrder = categoryOrder.has(a)
+					? categoryOrder.get(a)!
+					: Number.MAX_SAFE_INTEGER
+				const bOrder = categoryOrder.has(b)
+					? categoryOrder.get(b)!
+					: Number.MAX_SAFE_INTEGER
 				if (aOrder !== bOrder) return aOrder - bOrder
 				return a.localeCompare(b)
 			}
@@ -162,7 +179,9 @@ export default function BlogPage() {
 			if (!group) return
 
 			// 检查该分组是否所有文章都已选中
-			const allSelected = group.items.every(item => selectedSlugs.has(item.slug))
+			const allSelected = group.items.every(item =>
+				selectedSlugs.has(item.slug)
+			)
 
 			setSelectedSlugs(prev => {
 				const next = new Set(prev)
@@ -207,16 +226,19 @@ export default function BlogPage() {
 		setSelectedSlugs(new Set())
 	}, [selectedCount, selectedSlugs])
 
-	const handleAssignCategory = useCallback((slug: string, category?: string) => {
-		setEditableItems(prev =>
-			prev.map(item => {
-				if (item.slug !== slug) return item
-				const nextCategory = category?.trim()
-				if (!nextCategory) return { ...item, category: undefined }
-				return { ...item, category: nextCategory }
-			})
-		)
-	}, [])
+	const handleAssignCategory = useCallback(
+		(slug: string, category?: string) => {
+			setEditableItems(prev =>
+				prev.map(item => {
+					if (item.slug !== slug) return item
+					const nextCategory = category?.trim()
+					if (!nextCategory) return { ...item, category: undefined }
+					return { ...item, category: nextCategory }
+				})
+			)
+		},
+		[]
+	)
 
 	const handleAddCategory = useCallback(() => {
 		const value = newCategory.trim()
@@ -230,7 +252,11 @@ export default function BlogPage() {
 
 	const handleRemoveCategory = useCallback((category: string) => {
 		setCategoryList(prev => prev.filter(item => item !== category))
-		setEditableItems(prev => prev.map(item => (item.category === category ? { ...item, category: undefined } : item)))
+		setEditableItems(prev =>
+			prev.map(item =>
+				item.category === category ? { ...item, category: undefined } : item
+			)
+		)
 	}, [])
 
 	const handleReorderCategories = useCallback((nextList: string[]) => {
@@ -244,16 +270,29 @@ export default function BlogPage() {
 	}, [items])
 
 	const handleSave = useCallback(async () => {
-		const removedSlugs = items.filter(item => !editableItems.some(editItem => editItem.slug === item.slug)).map(item => item.slug)
-		const normalizedCategoryList = categoryList.map(c => c.trim()).filter(Boolean)
-		const categoryListChanged = JSON.stringify(normalizedCategoryList) !== JSON.stringify((categoriesFromServer || []).map(c => c.trim()).filter(Boolean))
+		const removedSlugs = items
+			.filter(
+				item => !editableItems.some(editItem => editItem.slug === item.slug)
+			)
+			.map(item => item.slug)
+		const normalizedCategoryList = categoryList
+			.map(c => c.trim())
+			.filter(Boolean)
+		const categoryListChanged =
+			JSON.stringify(normalizedCategoryList) !==
+			JSON.stringify(
+				(categoriesFromServer || []).map(c => c.trim()).filter(Boolean)
+			)
 		const categoryAssignmentChanged = items.some(origin => {
 			const next = editableItems.find(editItem => editItem.slug === origin.slug)
 			const originCategory = origin.category || ''
 			const nextCategory = next?.category || ''
 			return originCategory !== nextCategory
 		})
-		const hasChanges = removedSlugs.length > 0 || categoryListChanged || categoryAssignmentChanged
+		const hasChanges =
+			removedSlugs.length > 0 ||
+			categoryListChanged ||
+			categoryAssignmentChanged
 
 		if (!hasChanges) {
 			toast.info('没有需要保存的改动')
@@ -335,7 +374,9 @@ export default function BlogPage() {
 							{ value: 'week', label: '周' },
 							{ value: 'month', label: '月' },
 							{ value: 'year', label: '年' },
-							...(enableCategories ? ([{ value: 'category', label: '分类' }] as const) : [])
+							...(enableCategories
+								? ([{ value: 'category', label: '分类' }] as const)
+								: [])
 						].map(option => (
 							<motion.button
 								key={option.value}
@@ -344,7 +385,9 @@ export default function BlogPage() {
 								onClick={() => setDisplayMode(option.value as DisplayMode)}
 								className={cn(
 									'rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
-									displayMode === option.value ? 'bg-brand text-white shadow-sm' : 'text-secondary hover:text-brand hover:bg-white/60'
+									displayMode === option.value
+										? 'bg-brand text-white shadow-sm'
+										: 'text-secondary hover:text-brand hover:bg-white/60'
 								)}>
 								{option.label}
 							</motion.button>
@@ -367,11 +410,15 @@ export default function BlogPage() {
 								<div className='flex items-center gap-3'>
 									<div className='font-medium'>{getGroupLabel(groupKey)}</div>
 									<div className='h-2 w-2 rounded-full bg-[#D9D9D9]'></div>
-									<div className='text-secondary text-sm'>{group.items.length} 篇文章</div>
+									<div className='text-secondary text-sm'>
+										{group.items.length} 篇文章
+									</div>
 								</div>
 								{editMode &&
 									(() => {
-										const groupAllSelected = group.items.every(item => selectedSlugs.has(item.slug))
+										const groupAllSelected = group.items.every(item =>
+											selectedSlugs.has(item.slug)
+										)
 										return (
 											<motion.button
 												whileHover={{ scale: 1.05 }}
@@ -402,7 +449,9 @@ export default function BlogPage() {
 												editMode
 													? cn(
 															'rounded-lg border px-3',
-															isSelected ? 'border-brand/60 bg-brand/5' : 'hover:border-brand/40 border-transparent hover:bg-white/60'
+															isSelected
+																? 'border-brand/60 bg-brand/5'
+																: 'hover:border-brand/40 border-transparent hover:bg-white/60'
 														)
 													: 'cursor-pointer'
 											)}>
@@ -410,12 +459,16 @@ export default function BlogPage() {
 												<span
 													className={cn(
 														'flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-semibold',
-														isSelected ? 'border-brand bg-brand text-white' : 'border-[#D9D9D9] text-transparent'
+														isSelected
+															? 'border-brand bg-brand text-white'
+															: 'border-[#D9D9D9] text-transparent'
 													)}>
 													<Check />
 												</span>
 											)}
-											<span className='text-secondary w-[44px] shrink-0 text-sm font-medium'>{dayjs(it.date).format('MM-DD')}</span>
+											<span className='text-secondary w-[44px] shrink-0 text-sm font-medium'>
+												{dayjs(it.date).format('MM-DD')}
+											</span>
 
 											<div className='relative flex h-2 w-2 items-center justify-center'>
 												<div className='bg-secondary group-hover:bg-brand h-[5px] w-[5px] rounded-full transition-all group-hover:h-4'></div>
@@ -424,10 +477,16 @@ export default function BlogPage() {
 											<div
 												className={cn(
 													'flex-1 truncate text-sm font-medium transition-all',
-													editMode ? null : 'group-hover:text-brand group-hover:translate-x-2'
+													editMode
+														? null
+														: 'group-hover:text-brand group-hover:translate-x-2'
 												)}>
 												{it.title || it.slug}
-												{hasRead && <span className='text-secondary ml-2 text-xs'>[已阅读]</span>}
+												{hasRead && (
+													<span className='text-secondary ml-2 text-xs'>
+														[已阅读]
+													</span>
+												)}
 											</div>
 											<div className='flex flex-wrap items-center gap-2 max-sm:hidden'>
 												{(it.tags || []).map(t => (
@@ -461,8 +520,16 @@ export default function BlogPage() {
 			</div>
 
 			<div className='pt-12'>
-				{!loading && items.length === 0 && <div className='text-secondary py-6 text-center text-sm'>暂无文章</div>}
-				{loading && <div className='text-secondary py-6 text-center text-sm'>加载中...</div>}
+				{!loading && items.length === 0 && (
+					<div className='text-secondary py-6 text-center text-sm'>
+						暂无文章
+					</div>
+				)}
+				{loading && (
+					<div className='text-secondary py-6 text-center text-sm'>
+						加载中...
+					</div>
+				)}
 			</div>
 
 			<motion.div
@@ -492,7 +559,11 @@ export default function BlogPage() {
 						<motion.button
 							whileHover={{ scale: 1.05 }}
 							whileTap={{ scale: 0.95 }}
-							onClick={selectedCount === editableItems.length ? handleDeselectAll : handleSelectAll}
+							onClick={
+								selectedCount === editableItems.length
+									? handleDeselectAll
+									: handleSelectAll
+							}
 							className='rounded-xl border bg-white/60 px-4 py-2 text-sm transition-colors hover:bg-white/80'>
 							{selectedCount === editableItems.length ? '取消全选' : '全选'}
 						</motion.button>
@@ -504,7 +575,12 @@ export default function BlogPage() {
 							className='rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 transition-colors disabled:opacity-60'>
 							删除(已选:{selectedCount}篇)
 						</motion.button>
-						<motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSaveClick} disabled={saving} className='brand-btn px-6'>
+						<motion.button
+							whileHover={{ scale: 1.05 }}
+							whileTap={{ scale: 0.95 }}
+							onClick={handleSaveClick}
+							disabled={saving}
+							className='brand-btn px-6'>
 							{saving ? '保存中...' : buttonText}
 						</motion.button>
 					</>

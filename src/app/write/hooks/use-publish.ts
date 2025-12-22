@@ -1,13 +1,14 @@
-import { useCallback } from 'react'
+import { useAuthStore } from '@/hooks/use-auth'
 import { readFileAsText } from '@/lib/file-utils'
+import { useCallback } from 'react'
 import { toast } from 'sonner'
-import { pushBlog } from '../services/push-blog'
+import { createArticle } from '../actions'
 import { deleteBlog } from '../services/delete-blog'
 import { useWriteStore } from '../stores/write-store'
-import { useAuthStore } from '@/hooks/use-auth'
 
 export function usePublish() {
-	const { loading, setLoading, form, cover, images, mode, originalSlug } = useWriteStore()
+	const { loading, setLoading, form, cover, images, mode, originalSlug } =
+		useWriteStore()
 	const { isAuth, setPrivateKey } = useAuthStore()
 
 	const onChoosePrivateKey = useCallback(
@@ -21,16 +22,28 @@ export function usePublish() {
 	const onPublish = useCallback(async () => {
 		try {
 			setLoading(true)
-			await pushBlog({
-				form,
-				cover,
-				images,
-				mode,
-				originalSlug
-			})
-
-			const successMsg = mode === 'edit' ? '更新成功' : '发布成功'
-			toast.success(successMsg)
+			toast.promise(
+				createArticle({
+					slug: form.slug,
+					title: form.title,
+					content: form.md,
+					categories: form.category ? [form.category] : [],
+					tags: form.tags,
+					summary: form.summary
+				}),
+				{
+					loading: mode === 'edit' ? '更新中...' : '发布中...',
+					success: mode === 'edit' ? '更新成功' : '发布成功',
+					error: mode === 'edit' ? '更新失败' : '发布失败'
+				}
+			)
+			// await pushBlog({
+			// 	form,
+			// 	cover,
+			// 	images,
+			// 	mode,
+			// 	originalSlug
+			// })
 		} catch (err: any) {
 			console.error(err)
 			toast.error(err?.message || '操作失败')

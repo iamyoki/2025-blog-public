@@ -1,13 +1,18 @@
 import { motion } from 'motion/react'
 import { useWriteStore } from '../stores/write-store'
 import { INIT_DELAY } from '@/consts'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { PublishForm } from '../types'
 
 const defaultText = 'text'
 
-export function WriteEditor() {
-	const { form, updateForm, images, addFiles } = useWriteStore()
+export function WriteEditor({ form }: { form: PublishForm }) {
+	const { updateForm, images, addFiles } = useWriteStore()
 	const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+	useEffect(() => {
+		updateForm(form)
+	}, [form])
 
 	const insertText = (text: string) => {
 		const textarea = textareaRef.current
@@ -24,7 +29,10 @@ export function WriteEditor() {
 			const after = value.substring(selectionEnd)
 			updateForm({ md: before + text + after })
 			setTimeout(() => {
-				textarea.setSelectionRange(selectionStart + text.length, selectionStart + text.length)
+				textarea.setSelectionRange(
+					selectionStart + text.length,
+					selectionStart + text.length
+				)
 				textarea.focus()
 			}, 0)
 		}
@@ -56,7 +64,10 @@ export function WriteEditor() {
 				insertText(`**${text}**`)
 				if (!selectedText) {
 					setTimeout(() => {
-						textarea.setSelectionRange(selectionStart + 2, selectionStart + 2 + defaultText.length)
+						textarea.setSelectionRange(
+							selectionStart + 2,
+							selectionStart + 2 + defaultText.length
+						)
 					}, 0)
 				}
 			}
@@ -70,7 +81,10 @@ export function WriteEditor() {
 			const after = value.substring(selectionEnd)
 
 			// Check if already italic
-			const isItalic = before.endsWith('*') && after.startsWith('*') && !(before.endsWith('**') && after.startsWith('**'))
+			const isItalic =
+				before.endsWith('*') &&
+				after.startsWith('*') &&
+				!(before.endsWith('**') && after.startsWith('**'))
 
 			if (isItalic && selectedText) {
 				// Remove italic and replace
@@ -83,7 +97,10 @@ export function WriteEditor() {
 				if (!selectedText) {
 					// Select the default text
 					setTimeout(() => {
-						textarea.setSelectionRange(selectionStart + 1, selectionStart + 1 + defaultText.length)
+						textarea.setSelectionRange(
+							selectionStart + 1,
+							selectionStart + 1 + defaultText.length
+						)
 					}, 0)
 				}
 			}
@@ -114,7 +131,10 @@ export function WriteEditor() {
 		if (e.key === 'Tab' && e.shiftKey) {
 			e.preventDefault()
 			const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1
-			const line = value.substring(lineStart, value.indexOf('\n', selectionStart))
+			const line = value.substring(
+				lineStart,
+				value.indexOf('\n', selectionStart)
+			)
 
 			if (line.startsWith('\t')) {
 				textarea.setSelectionRange(lineStart, lineStart + 1)
@@ -149,7 +169,13 @@ export function WriteEditor() {
 
 			if (resultImages && resultImages.length > 0) {
 				// 为所有处理后的图片（包括新添加和已存在的）生成 markdown
-				const markdowns = resultImages.map(item => (item.type === 'url' ? `![](${item.url})` : `![](local-image:${item.id})`)).join('\n')
+				const markdowns = resultImages
+					.map(item =>
+						item.type === 'url'
+							? `![](${item.url})`
+							: `![](local-image:${item.id})`
+					)
+					.join('\n')
 				insertText(markdowns)
 			}
 		}
